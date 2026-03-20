@@ -938,6 +938,7 @@
               <button class="btn btn-secondary btn-sm" id="viewListBtn" onclick="setCatalogView('list')" style="background:#3b82f6;color:#fff;">📋 리스트</button>
               <button class="btn btn-secondary btn-sm" id="viewCardBtn" onclick="setCatalogView('card')">🃏 카드</button>
               <button class="btn btn-primary" onclick="openAddCatalog()">+ 새 제품</button>
+              <button class="btn btn-secondary btn-sm" onclick="fetchAllCatalogImages()" id="btnFetchImages" style="background:#f59e0b;color:#fff;font-size:11px;">🖼️ 이미지 일괄 가져오기</button>
             </div>
           </div>
 
@@ -4290,6 +4291,116 @@
         reader.readAsDataURL(input.files[0]);
       } else { alert('이미지를 선택해주세요.'); }
     }
+
+    // ============================================================
+    // 이미지 일괄 가져오기 (한국금거래소 → base64 → DB 저장)
+    // ============================================================
+    var _imgFetchRunning = false;
+    function fetchAllCatalogImages() {
+      if (_imgFetchRunning) { alert('이미 진행 중입니다. 잠시 기다려주세요.'); return; }
+
+      // 외부 URL인 제품만 대상 (이미 base64인 것은 제외)
+      var targets = [];
+      (DB.catalog || []).forEach(function(item, idx) {
+        if (item.image && item.image.startsWith('http') && !item.image.startsWith('data:')) {
+          targets.push({ idx: idx, url: item.image, name: item.name });
+        }
+      });
+
+      if (targets.length === 0) { alert('가져올 이미지가 없습니다. (모두 등록 완료)'); return; }
+
+      if (!confirm(targets.length + '개 제품 이미지를 가져옵니다.\n시간이 좀 걸릴 수 있습니다. 진행할까요?')) return;
+
+      _imgFetchRunning = true;
+      var btn = document.getElementById('btnFetchImages');
+      var successCount = 0;
+      var failCount = 0;
+      var processed = 0;
+
+      // 상태 표시
+      function updateBtn() {
+        if (btn) btn.textContent = '⏳ ' + processed + '/' + targets.length + ' (' + successCount + '성공)';
+      }
+
+      // 한 번에 3개씩 병렬 처리
+      var batchSize = 3;
+      var currentBatch = 0;
+
+      function processBatch() {
+        var start = currentBatch * batchSize;
+        if (start >= targets.length) {
+          // 완료
+          _imgFetchRunning = false;
+          if (btn) { btn.textContent = '🖼️ 이미지 일괄 가져오기'; btn.style.background = '#f59e0b'; }
+          saveDB();
+          renderCatalog();
+          alert('이미지 가져오기 완료!\n성공: ' + successCount + '개\n실패: ' + failCount + '개');
+          return;
+        }
+
+        var batch = targets.slice(start, start + batchSize);
+        var promises = batch.map(function(t) {
+          return new Promise(function(resolve) {
+            var img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.referrerPolicy = 'no-referrer';
+
+            img.onload = function() {
+              try {
+                var canvas = document.createElement('canvas');
+                // 썸네일 크기로 리사이즈 (최대 200px)
+                var maxSize = 200;
+                var w = img.naturalWidth;
+                var h = img.naturalHeight;
+                if (w > maxSize || h > maxSize) {
+                  if (w > h) { h = Math.round(h * maxSize / w); w = maxSize; }
+                  else { w = Math.round(w * maxSize / h); h = maxSize; }
+                }
+                canvas.width = w;
+                canvas.height = h;
+                var ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, w, h);
+                var dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+                DB.catalog[t.idx].image = dataUrl;
+                successCount++;
+              } catch(e) { failCount++; }
+              processed++;
+              updateBtn();
+              resolve();
+            };
+
+            img.onerror = function() {
+              failCount++;
+              processed++;
+              updateBtn();
+              resolve();
+            };
+
+            // 타임아웃 5초
+            setTimeout(function() {
+              if (img.complete) return;
+              img.src = '';
+              failCount++;
+              processed++;
+              updateBtn();
+              resolve();
+            }, 5000);
+
+            img.src = t.url;
+          });
+        });
+
+        Promise.all(promises).then(function() {
+          currentBatch++;
+          // 다음 배치까지 300ms 딜레이
+          setTimeout(processBatch, 300);
+        });
+      }
+
+      updateBtn();
+      processBatch();
+    }
+
     function saveCatalog() {
       var preview = document.getElementById('catalogImagePreview');
       var imageData = preview ? (preview.dataset.imageData || '') : '';
