@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>GoldERP 이미지 다운로더</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Segoe UI', sans-serif; background: #f8fafc; padding: 30px; }
+.container { max-width: 900px; margin: 0 auto; }
+h1 { color: #1e293b; margin-bottom: 8px; font-size: 24px; }
+p.desc { color: #64748b; margin-bottom: 20px; font-size: 14px; }
+.status-box { background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 20px; }
+.progress-bar { width: 100%; height: 24px; background: #e2e8f0; border-radius: 12px; overflow: hidden; margin: 12px 0; }
+.progress-fill { height: 100%; background: linear-gradient(90deg, #3b82f6, #2563eb); border-radius: 12px; transition: width 0.3s; width: 0%; }
+.stats { display: flex; gap: 20px; margin-top: 12px; }
+.stat { text-align: center; flex: 1; }
+.stat .num { font-size: 28px; font-weight: 700; color: #1e293b; }
+.stat .label { font-size: 12px; color: #64748b; }
+.stat.success .num { color: #16a34a; }
+.stat.fail .num { color: #ef4444; }
+button.start { background: #3b82f6; color: #fff; border: none; padding: 14px 32px; font-size: 16px; border-radius: 8px; cursor: pointer; font-weight: 600; }
+button.start:hover { background: #2563eb; }
+button.start:disabled { background: #94a3b8; cursor: not-allowed; }
+button.save { background: #16a34a; color: #fff; border: none; padding: 14px 32px; font-size: 16px; border-radius: 8px; cursor: pointer; font-weight: 600; display: none; margin-left: 10px; }
+button.save:hover { background: #15803d; }
+.preview-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 8px; margin-top: 16px; max-height: 400px; overflow-y: auto; }
+.preview-item { position: relative; }
+.preview-item img { width: 100%; height: 80px; object-fit: cover; border-radius: 6px; border: 2px solid #e2e8f0; }
+.preview-item .badge { position: absolute; top: 2px; right: 2px; font-size: 10px; background: #16a34a; color: #fff; border-radius: 4px; padding: 1px 4px; }
+.preview-item.failed img { border-color: #ef4444; opacity: 0.3; }
+.log { background: #1e293b; color: #a3e635; border-radius: 8px; padding: 12px; font-family: monospace; font-size: 11px; max-height: 200px; overflow-y: auto; margin-top: 12px; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>🖼️ GoldERP 이미지 다운로더</h1>
+  <p class="desc">한국금거래소 제품 이미지를 가져와서 GoldERP에서 사용할 수 있게 변환합니다.<br>
+  <b>사용법:</b> "시작" 버튼 → 완료 후 "저장" 버튼 → 생성된 파일을 GoldERP-Web 폴더에 넣기</p>
+
+  <div class="status-box">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <button class="start" id="btnStart" onclick="startDownload()">🚀 이미지 가져오기 시작</button>
+      <button class="save" id="btnSave" onclick="saveResult()">💾 이미지 데이터 저장</button>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    <div id="statusText" style="font-size:13px;color:#475569;">대기 중...</div>
+    <div class="stats">
+      <div class="stat"><div class="num" id="totalNum">0</div><div class="label">전체</div></div>
+      <div class="stat success"><div class="num" id="successNum">0</div><div class="label">성공</div></div>
+      <div class="stat fail"><div class="num" id="failNum">0</div><div class="label">실패</div></div>
+    </div>
+  </div>
+
+  <div class="status-box">
+    <b>미리보기</b>
+    <div class="preview-grid" id="previewGrid"></div>
+  </div>
+
+  <div class="log" id="logBox">로그가 여기에 표시됩니다...\n</div>
+</div>
+
+<script>
+// === 제품 이미지 URL 목록 (엑셀에서 추출) ===
+var PRODUCT_IMAGES = [
+  // 골드바
+  {id:'1',name:'골드바 보관함',url:'https://www.koreagoldx.co.kr/data/product/thumb/Goldbarstoragebox_1.jpg'},
+  {id:'2',name:'유가증권 골드바 10g',url:'https://www.koreagoldx.co.kr/data/product/thumb/%EA%B3%A8%EB%93%9C%EC%9C%A0%EA%B0%80%EC%A6%9D%EA%B6%8C-%EB%8C%80%ED%91%9C_%EA%B3%A8%EB%93%9C_1.jpg'},
+  {id:'3',name:'골드바 1.875g',url:'https://www.koreagoldx.co.kr/data/product/thumb/1_875g.jpg'},
+  {id:'4',name:'골드바 3.75g',url:'https://www.koreagoldx.co.kr/data/product/thumb/3_75g.jpg'},
+  {id:'5',name:'골드바 10g',url:'https://www.koreagoldx.co.kr/data/product/thumb/10g_1.jpg'},
+  {id:'6',name:'골드바 18.75g',url:'https://www.koreagoldx.co.kr/data/product/thumb/18_75g.jpg'},
+  {id:'7',name:'골드바 37.5g',url:'https://www.koreagoldx.co.kr/data/product/thumb/37_5g.jpg'},
+  {id:'8',name:'골드바 100g',url:'https://www.koreagoldx.co.kr/data/product/thumb/100g.jpg'},
+  {id:'9',name:'골드바 500g',url:'https://www.koreagoldx.co.kr/data/product/thumb/500g.jpg'},
+  {id:'10',name:'골드바 1000g',url:'https://www.koreagoldx.co.kr/data/product/thumb/1000g.jpg'},
+];
+
+// 전체 이미지 목록을 자동 생성
+// (실제로는 index.html의 DB.catalog에서 이미지 URL을 추출합니다)
+
+var imageResults = {};
+var totalCount = 0;
+var successCount = 0;
+var failCount = 0;
+
+function log(msg) {
+  var box = document.getElementById('logBox');
+  box.textContent += msg + '\n';
+  box.scrollTop = box.scrollHeight;
+}
+
+function updateUI() {
+  document.getElementById('totalNum').textContent = totalCount;
+  document.getElementById('successNum').textContent = successCount;
+  document.getElementById('failNum').textContent = failCount;
+  var pct = totalCount > 0 ? Math.round((successCount + failCount) / totalCount * 100) : 0;
+  document.getElementById('progressFill').style.width = pct + '%';
+  document.getElementById('statusText').textContent =
+    (successCount + failCount) >= totalCount ? '✅ 완료!' : '진행 중... ' + (successCount + failCount) + '/' + totalCount;
+}
+
+function loadImageAsBase64(url) {
+  return new Promise(function(resolve) {
+    // 방법 1: fetch로 직접 다운로드
+    fetch(url, {
+      mode: 'cors',
+      referrerPolicy: 'no-referrer',
+      headers: { 'Accept': 'image/*' }
+    })
+    .then(function(resp) {
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      return resp.blob();
+    })
+    .then(function(blob) {
+      // blob을 canvas로 리사이즈
+      var objUrl = URL.createObjectURL(blob);
+      var img = new Image();
+      img.onload = function() {
+        var canvas = document.createElement('canvas');
+        var maxSize = 200;
+        var w = img.naturalWidth;
+        var h = img.naturalHeight;
+        if (w > maxSize || h > maxSize) {
+          if (w > h) { h = Math.round(h * maxSize / w); w = maxSize; }
+          else { w = Math.round(w * maxSize / h); h = maxSize; }
+        }
+        canvas.width = w;
+        canvas.height = h;
+        var ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        var dataUrl = canvas.toDataURL('image/jpeg', 0.75);
+        URL.revokeObjectURL(objUrl);
+        resolve(dataUrl);
+      };
+      img.onerror = function() {
+        URL.revokeObjectURL(objUrl);
+        resolve(null);
+      };
+      img.src = objUrl;
+    })
+    .catch(function() {
+      // 방법 2: img 태그로 시도
+      var img2 = new Image();
+      img2.crossOrigin = 'anonymous';
+      img2.referrerPolicy = 'no-referrer';
+      img2.onload = function() {
+        try {
+          var canvas = document.createElement('canvas');
+          var maxSize = 200;
+          var w = img2.naturalWidth;
+          var h = img2.naturalHeight;
+          if (w > maxSize || h > maxSize) {
+            if (w > h) { h = Math.round(h * maxSize / w); w = maxSize; }
+            else { w = Math.round(w * maxSize / h); h = maxSize; }
+          }
+          canvas.width = w;
+          canvas.height = h;
+          canvas.getContext('2d').drawImage(img2, 0, 0, w, h);
+          resolve(canvas.toDataURL('image/jpeg', 0.75));
+        } catch(e) { resolve(null); }
+      };
+      img2.onerror = function() { resolve(null); };
+      setTimeout(function() { if (!img2.complete) { img2.src = ''; resolve(null); } }, 8000);
+      img2.src = url;
+    });
+  });
+}
+
+function addPreview(name, dataUrl, success) {
+  var grid = document.getElementById('previewGrid');
+  var div = document.createElement('div');
+  div.className = 'preview-item' + (success ? '' : ' failed');
+  if (success) {
+    div.innerHTML = '<img src="' + dataUrl + '"><div class="badge">✓</div>';
+  } else {
+    div.innerHTML = '<img src="data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'80\' height=\'80\'%3E%3Crect fill=\'%23f1f5f9\' width=\'80\' height=\'80\'/%3E%3Ctext x=\'40\' y=\'45\' text-anchor=\'middle\' fill=\'%2394a3b8\' font-size=\'12\'%3E❌%3C/text%3E%3C/svg%3E">';
+  }
+  div.title = name;
+  grid.appendChild(div);
+}
+
+async function startDownload() {
+  var btn = document.getElementById('btnStart');
+  btn.disabled = true;
+  btn.textContent = '⏳ 진행 중...';
+
+  log('=== 이미지 다운로드 시작 ===');
+
+  // index.html에서 catalog 데이터를 읽어오기
+  // 이 파일과 같은 폴더의 index.html을 fetch
+  var catalogImages = [];
+
+  try {
+    var resp = await fetch('index.html');
+    var html = await resp.text();
+
+    // catalog 배열에서 이미지 URL 추출
+    var catalogMatch = html.match(/catalog:\s*\[([\s\S]*?)\],\s*stones:/);
+    if (catalogMatch) {
+      var catalogStr = catalogMatch[1];
+      // 각 아이템에서 name과 image URL 추출
+      var itemRegex = /name:\s*'([^']*)'.*?image:\s*'([^']*)'/g;
+      var match;
+      while ((match = itemRegex.exec(catalogStr)) !== null) {
+        var name = match[1];
+        var imageUrl = match[2];
+        if (imageUrl && imageUrl.startsWith('http')) {
+          catalogImages.push({ name: name, url: imageUrl });
+        }
+      }
+    }
+    log('index.html에서 ' + catalogImages.length + '개 이미지 URL 추출');
+  } catch(e) {
+    log('index.html 읽기 실패: ' + e.message);
+    log('기본 이미지 목록 사용 (' + PRODUCT_IMAGES.length + '개)');
+    catalogImages = PRODUCT_IMAGES;
+  }
+
+  totalCount = catalogImages.length;
+  successCount = 0;
+  failCount = 0;
+  imageResults = {};
+  updateUI();
+
+  // 3개씩 병렬 다운로드
+  var batchSize = 3;
+  for (var i = 0; i < catalogImages.length; i += batchSize) {
+    var batch = catalogImages.slice(i, i + batchSize);
+    var results = await Promise.all(batch.map(function(item) {
+      return loadImageAsBase64(item.url).then(function(dataUrl) {
+        return { name: item.name, url: item.url, dataUrl: dataUrl };
+      });
+    }));
+
+    results.forEach(function(r) {
+      if (r.dataUrl) {
+        imageResults[r.url] = r.dataUrl;
+        successCount++;
+        log('✅ ' + r.name);
+        addPreview(r.name, r.dataUrl, true);
+      } else {
+        failCount++;
+        log('❌ ' + r.name + ' (차단됨)');
+        addPreview(r.name, null, false);
+      }
+      updateUI();
+    });
+
+    // 서버 부하 방지 딜레이
+    await new Promise(function(r) { setTimeout(r, 200); });
+  }
+
+  log('\n=== 완료: 성공 ' + successCount + ' / 실패 ' + failCount + ' ===');
+
+  btn.textContent = '✅ 완료';
+  if (successCount > 0) {
+    document.getElementById('btnSave').style.display = 'inline-block';
+  }
+}
+
+function saveResult() {
+  // imageResults를 JS 파일로 저장
+  var jsContent = '// GoldERP 제품 이미지 캐시\n';
+  jsContent += '// 생성일: ' + new Date().toLocaleDateString('ko-KR') + '\n';
+  jsContent += '// 성공: ' + successCount + '개\n';
+  jsContent += 'var CACHED_IMAGES = ' + JSON.stringify(imageResults, null, 2) + ';\n\n';
+  jsContent += '// 카탈로그에 캐시된 이미지 적용\n';
+  jsContent += 'if (typeof DB !== "undefined" && DB.catalog) {\n';
+  jsContent += '  DB.catalog.forEach(function(item) {\n';
+  jsContent += '    if (item.image && CACHED_IMAGES[item.image]) {\n';
+  jsContent += '      item.image = CACHED_IMAGES[item.image];\n';
+  jsContent += '    }\n';
+  jsContent += '  });\n';
+  jsContent += '  console.log("✅ 캐시된 이미지 " + Object.keys(CACHED_IMAGES).length + "개 적용 완료");\n';
+  jsContent += '}\n';
+
+  var blob = new Blob([jsContent], { type: 'application/javascript;charset=utf-8' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = 'image-cache.js';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
+  alert('image-cache.js 파일이 다운로드됩니다!\n\n이 파일을 GoldERP-Web 폴더에 넣고,\nindex.html에 <script src="image-cache.js"><\/script>를 추가하세요.');
+}
+</script>
+</body>
+</html>

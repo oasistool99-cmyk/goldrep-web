@@ -1,0 +1,150 @@
+// ============================================================
+// GoldERP 이미지 가져오기 스크립트
+// ============================================================
+//
+// 사용법:
+// 1. 크롬에서 https://www.koreagoldx.co.kr 접속
+// 2. F12 키 → Console 탭 선택
+// 3. 아래 코드를 전부 복사해서 Console에 붙여넣기
+// 4. Enter 키
+// 5. 완료되면 image-cache.js 파일이 자동 다운로드됨
+// 6. 다운로드된 image-cache.js를 GoldERP-Web 폴더에 넣기
+// ============================================================
+
+(async function() {
+  console.log('🚀 GoldERP 이미지 가져오기 시작...');
+
+  // 이미지 URL 목록 (한국금거래소 제품)
+  var IMAGE_URLS = [
+    'https://www.koreagoldx.co.kr/data/product/thumb/Goldbarstoragebox_1.jpg',
+    'https://www.koreagoldx.co.kr/data/product/thumb/%EA%B3%A8%EB%93%9C%EC%9C%A0%EA%B0%80%EC%A6%9D%EA%B6%8C-%EB%8C%80%ED%91%9C_%EA%B3%A8%EB%93%9C_1.jpg',
+    'https://www.koreagoldx.co.kr/data/product/thumb/1_875g.jpg',
+    'https://www.koreagoldx.co.kr/data/product/thumb/3_75g.jpg',
+    'https://www.koreagoldx.co.kr/data/product/thumb/10g_1.jpg',
+    'https://www.koreagoldx.co.kr/data/product/thumb/18_75g.jpg',
+    'https://www.koreagoldx.co.kr/data/product/thumb/37_5g.jpg',
+    'https://www.koreagoldx.co.kr/data/product/thumb/100g.jpg',
+    'https://www.koreagoldx.co.kr/data/product/thumb/500g.jpg',
+    'https://www.koreagoldx.co.kr/data/product/thumb/1000g.jpg',
+    'https://www.koreagoldx.co.kr/data/product/thumb/thankyou_1g.jpg',
+    'https://www.koreagoldx.co.kr/data/product/thumb/%EA%BD%83%EB%8B%A4%EB%B0%9C%EA%B3%A8%EB%93%9C%EB%B0%94_1.jpg',
+    'https://www.koreagoldx.co.kr/data/product/thumb/%EC%84%A0%EB%AC%BC%EA%B3%A8%EB%93%9C%EB%B0%94_1.jpg',
+    'https://www.koreagoldx.co.kr/data/product/thumb/%EC%83%9D%EC%B8%A1%ED%95%98_1_875_%EB%8C%80%ED%91%9C_1.jpg',
+    'https://www.koreagoldx.co.kr/data/product/thumb/%EC%83%9D%EC%B8%A1%ED%95%98_3_75_%EB%8C%80%ED%91%9C_1.jpg',
+    'https://www.koreagoldx.co.kr/data/product/thumb/%EA%B8%B8%EC%83%81%EB%AC%B4%EB%8A%AC_%EB%8C%80%ED%91%9C_1.jpg'
+  ];
+
+  // 이미지를 base64로 변환
+  async function toBase64(url) {
+    try {
+      var resp = await fetch(url);
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      var blob = await resp.blob();
+      return new Promise(function(resolve) {
+        var reader = new FileReader();
+        reader.onload = function() {
+          // 리사이즈
+          var img = new Image();
+          img.onload = function() {
+            var canvas = document.createElement('canvas');
+            var maxSize = 200;
+            var w = img.width, h = img.height;
+            if (w > maxSize || h > maxSize) {
+              if (w > h) { h = Math.round(h * maxSize / w); w = maxSize; }
+              else { w = Math.round(w * maxSize / h); h = maxSize; }
+            }
+            canvas.width = w; canvas.height = h;
+            canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+            resolve(canvas.toDataURL('image/jpeg', 0.75));
+          };
+          img.onerror = function() { resolve(null); };
+          img.src = reader.result;
+        };
+        reader.onerror = function() { resolve(null); };
+        reader.readAsDataURL(blob);
+      });
+    } catch(e) { return null; }
+  }
+
+  // 실제로는 이 사이트의 모든 제품 이미지를 크롤링
+  // 제품 페이지들을 순회하면서 이미지 수집
+  console.log('📋 제품 목록 수집 중...');
+
+  var results = {};
+  var success = 0, fail = 0;
+
+  // 제품 ID 1~600 범위에서 이미지 수집
+  var productIds = [];
+  for (var i = 1; i <= 600; i++) productIds.push(i);
+
+  // 10개씩 병렬 처리
+  for (var batch = 0; batch < productIds.length; batch += 10) {
+    var ids = productIds.slice(batch, batch + 10);
+    var promises = ids.map(async function(pid) {
+      var thumbUrl = 'https://www.koreagoldx.co.kr/product/' + pid;
+      try {
+        var resp = await fetch(thumbUrl);
+        if (!resp.ok) return;
+        var html = await resp.text();
+        // 제품 이미지 추출
+        var match = html.match(/data\/product\/[^"'\s]+\.(jpg|jpeg|png|gif)/i);
+        if (match) {
+          var imgUrl = 'https://www.koreagoldx.co.kr/' + match[0];
+          // thumb 버전 URL
+          var thumbPath = match[0].replace('/product/', '/product/thumb/');
+          var thumbImgUrl = 'https://www.koreagoldx.co.kr/' + thumbPath;
+
+          var b64 = await toBase64(thumbImgUrl);
+          if (!b64) b64 = await toBase64(imgUrl);
+          if (b64) {
+            results[thumbImgUrl] = b64;
+            results[imgUrl] = b64;
+            // m. 도메인 버전도 추가
+            results[thumbImgUrl.replace('www.koreagoldx', 'm.koreagoldx')] = b64;
+            results[imgUrl.replace('www.koreagoldx', 'm.koreagoldx')] = b64;
+            success++;
+          } else {
+            fail++;
+          }
+        }
+      } catch(e) { /* skip */ }
+    });
+    await Promise.all(promises);
+    if ((batch + 10) % 50 === 0) {
+      console.log('⏳ 진행: ' + Math.min(batch + 10, productIds.length) + '/' + productIds.length + ' (성공: ' + success + ')');
+    }
+  }
+
+  console.log('✅ 완료! 성공: ' + success + ', 실패: ' + fail);
+
+  // JS 파일로 저장
+  var jsContent = '// GoldERP 제품 이미지 캐시\n';
+  jsContent += '// 생성일: ' + new Date().toLocaleDateString('ko-KR') + '\n';
+  jsContent += '// 이미지 수: ' + Object.keys(results).length + '개\n\n';
+  jsContent += 'var CACHED_IMAGES = ' + JSON.stringify(results) + ';\n\n';
+  jsContent += '// 카탈로그에 캐시된 이미지 적용\n';
+  jsContent += 'function applyCachedImages() {\n';
+  jsContent += '  if (typeof DB !== "undefined" && DB.catalog) {\n';
+  jsContent += '    var applied = 0;\n';
+  jsContent += '    DB.catalog.forEach(function(item) {\n';
+  jsContent += '      if (item.image && CACHED_IMAGES[item.image]) {\n';
+  jsContent += '        item.image = CACHED_IMAGES[item.image];\n';
+  jsContent += '        applied++;\n';
+  jsContent += '      }\n';
+  jsContent += '    });\n';
+  jsContent += '    console.log("✅ 캐시 이미지 " + applied + "개 적용 완료");\n';
+  jsContent += '    if (typeof renderCatalog === "function") renderCatalog();\n';
+  jsContent += '  }\n';
+  jsContent += '}\n';
+  jsContent += 'if (document.readyState === "complete") applyCachedImages();\n';
+  jsContent += 'else window.addEventListener("load", applyCachedImages);\n';
+
+  var blob = new Blob([jsContent], { type: 'text/javascript' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'image-cache.js';
+  a.click();
+
+  console.log('💾 image-cache.js 다운로드됨!');
+  console.log('👉 이 파일을 GoldERP-Web 폴더에 넣으세요.');
+})();

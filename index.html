@@ -2991,6 +2991,18 @@
     var catalogSortBy = 'newest';
 
     // 카테고리별 기본 이모지 + 배경색
+    // 이미지 로딩 실패 시 프록시로 재시도
+    function retryImageWithProxy(img) {
+      if (img.dataset.retried) return false;
+      var originalSrc = img.dataset.originalSrc || img.src;
+      if (!originalSrc || !originalSrc.startsWith('http') || originalSrc.startsWith('data:')) return false;
+      img.dataset.retried = 'true';
+      img.dataset.originalSrc = originalSrc;
+      // images.weserv.nl 프록시 사용 (무료, 빠름, 이미지 리사이즈 지원)
+      img.src = 'https://images.weserv.nl/?url=' + encodeURIComponent(originalSrc) + '&w=200&h=200&fit=cover&output=jpg&q=75';
+      return true;
+    }
+
     function getCategoryIcon(category) {
       var icons = {
         '골드바': { emoji: '🥇', bg: 'linear-gradient(135deg,#fef3c7,#fde68a)', color: '#92400e' },
@@ -3067,9 +3079,9 @@
         var listHtml = pageItems.map(function(item) {
           var idx = DB.catalog.indexOf(item);
           var ci = getCategoryIcon(item.category);
-          var fallbackList = 'this.onerror=null;this.style.display=&quot;none&quot;;this.parentElement.querySelector(&quot;.fallback&quot;).style.display=&quot;flex&quot;';
+          var fallbackList = 'if(!retryImageWithProxy(this)){this.onerror=null;this.style.display=&quot;none&quot;;this.parentElement.querySelector(&quot;.fallback&quot;).style.display=&quot;flex&quot;;}';
           var imgHtml = item.image
-            ? '<div style="position:relative;width:46px;height:46px;"><img src="' + item.image + '" referrerpolicy="no-referrer" style="width:46px;height:46px;object-fit:cover;border-radius:6px;cursor:pointer;" onclick="uploadCatalogImage(' + idx + ')" onerror="' + fallbackList + '"><div class="fallback" style="display:none;width:46px;height:46px;background:' + ci.bg + ';border-radius:6px;align-items:center;justify-content:center;font-size:22px;cursor:pointer;position:absolute;top:0;left:0;" onclick="uploadCatalogImage(' + idx + ')">' + ci.emoji + '</div></div>'
+            ? '<div style="position:relative;width:46px;height:46px;"><img src="' + item.image + '" referrerpolicy="no-referrer" data-original-src="' + item.image + '" style="width:46px;height:46px;object-fit:cover;border-radius:6px;cursor:pointer;" onclick="uploadCatalogImage(' + idx + ')" onerror="' + fallbackList + '"><div class="fallback" style="display:none;width:46px;height:46px;background:' + ci.bg + ';border-radius:6px;align-items:center;justify-content:center;font-size:22px;cursor:pointer;position:absolute;top:0;left:0;" onclick="uploadCatalogImage(' + idx + ')">' + ci.emoji + '</div></div>'
             : '<div style="width:46px;height:46px;background:' + ci.bg + ';border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:22px;cursor:pointer;" onclick="uploadCatalogImage(' + idx + ')">' + ci.emoji + '</div>';
           return '<tr style="cursor:pointer;">' +
             '<td>' + imgHtml + '</td>' +
@@ -3098,9 +3110,9 @@
         var cardHtml = pageItems.map(function(item) {
           var idx = DB.catalog.indexOf(item);
           var ci2 = getCategoryIcon(item.category);
-          var fallbackCard = 'this.onerror=null;this.style.display=&quot;none&quot;;this.parentElement.querySelector(&quot;.fallback&quot;).style.display=&quot;flex&quot;';
+          var fallbackCard = 'if(!retryImageWithProxy(this)){this.onerror=null;this.style.display=&quot;none&quot;;this.parentElement.querySelector(&quot;.fallback&quot;).style.display=&quot;flex&quot;;}';
           var imgHtml = item.image
-            ? '<div style="position:relative;width:100%;height:140px;"><img src="' + item.image + '" referrerpolicy="no-referrer" style="width:100%;height:140px;object-fit:contain;background:#fafafa;border-radius:8px 8px 0 0;" onerror="' + fallbackCard + '"><div class="fallback" style="display:none;width:100%;height:140px;background:' + ci2.bg + ';border-radius:8px 8px 0 0;align-items:center;justify-content:center;cursor:pointer;flex-direction:column;gap:4px;position:absolute;top:0;left:0;" onclick="uploadCatalogImage(' + idx + ')"><span style="font-size:42px;">' + ci2.emoji + '</span><span style="font-size:10px;color:' + ci2.color + ';">' + item.category + '</span></div></div>'
+            ? '<div style="position:relative;width:100%;height:140px;"><img src="' + item.image + '" referrerpolicy="no-referrer" data-original-src="' + item.image + '" style="width:100%;height:140px;object-fit:contain;background:#fafafa;border-radius:8px 8px 0 0;" onerror="' + fallbackCard + '"><div class="fallback" style="display:none;width:100%;height:140px;background:' + ci2.bg + ';border-radius:8px 8px 0 0;align-items:center;justify-content:center;cursor:pointer;flex-direction:column;gap:4px;position:absolute;top:0;left:0;" onclick="uploadCatalogImage(' + idx + ')"><span style="font-size:42px;">' + ci2.emoji + '</span><span style="font-size:10px;color:' + ci2.color + ';">' + item.category + '</span></div></div>'
             : '<div style="width:100%;height:140px;background:' + ci2.bg + ';border-radius:8px 8px 0 0;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-direction:column;gap:4px;" onclick="uploadCatalogImage(' + idx + ')"><span style="font-size:42px;">' + ci2.emoji + '</span><span style="font-size:10px;color:' + ci2.color + ';">' + item.category + '</span></div>';
           return '<div style="background:#fff;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,0.08);overflow:hidden;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.boxShadow=\'0 4px 12px rgba(0,0,0,0.15)\';this.style.transform=\'translateY(-2px)\'" onmouseout="this.style.boxShadow=\'0 1px 4px rgba(0,0,0,0.08)\';this.style.transform=\'none\'">' +
             imgHtml +
@@ -4557,7 +4569,7 @@
       }
       container.innerHTML = list.slice(0, 20).map(function(item, i) {
         var idx = (DB.catalog || []).indexOf(item);
-        var imgHtml = item.image ? '<img src="' + item.image + '" referrerpolicy="no-referrer" style="width:40px;height:40px;object-fit:cover;border-radius:4px;margin-right:8px;" onerror="this.style.display=\'none\'">' : '<div style="width:40px;height:40px;background:#f1f5f9;border-radius:4px;margin-right:8px;display:flex;align-items:center;justify-content:center;font-size:16px;">💎</div>';
+        var imgHtml = item.image ? '<img src="' + item.image + '" referrerpolicy="no-referrer" data-original-src="' + item.image + '" style="width:40px;height:40px;object-fit:cover;border-radius:4px;margin-right:8px;" onerror="if(!retryImageWithProxy(this))this.style.display=\'none\'">' : '<div style="width:40px;height:40px;background:#f1f5f9;border-radius:4px;margin-right:8px;display:flex;align-items:center;justify-content:center;font-size:16px;">💎</div>';
         return '<div onclick="selectOrderCatalog(' + idx + ')" style="display:flex;align-items:center;padding:8px;cursor:pointer;border-radius:6px;border-bottom:1px solid #f1f5f9;transition:background 0.15s;" onmouseover="this.style.background=\'#f0fdf4\'" onmouseout="this.style.background=\'\'">' +
           imgHtml +
           '<div style="flex:1;">' +
