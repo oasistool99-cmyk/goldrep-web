@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GoldERP Pro 로그인</title>
+
+  <!-- Supabase JS CDN (unpkg 백업 포함) -->
+  <script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script>
+    // CDN 로드 실패 시 백업 CDN 사용
+    if (!window.supabase) {
+      var s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+      document.head.appendChild(s);
+    }
+  </script>
+
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Malgun Gothic', '맑은 고딕', 'Apple SD Gothic Neo', sans-serif;
+      background: linear-gradient(135deg, #0f172a 0%, #1a2342 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+    }
+
+    .login-container {
+      width: 100%;
+      max-width: 420px;
+      padding: 20px;
+    }
+
+    .login-card {
+      background: rgba(15, 23, 42, 0.8);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(251, 191, 36, 0.2);
+      border-radius: 12px;
+      padding: 40px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    }
+
+    .login-header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+
+    .logo {
+      font-size: 48px;
+      margin-bottom: 16px;
+      color: #fbbf24;
+    }
+
+    .company-name {
+      font-size: 24px;
+      font-weight: 700;
+      color: #fbbf24;
+      margin-bottom: 4px;
+      letter-spacing: -0.5px;
+    }
+
+    .app-name {
+      font-size: 14px;
+      color: #94a3b8;
+      font-weight: 500;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #cbd5e1;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    input {
+      width: 100%;
+      padding: 12px 14px;
+      background: rgba(30, 41, 59, 0.8);
+      border: 1px solid rgba(251, 191, 36, 0.1);
+      border-radius: 6px;
+      color: #fff;
+      font-family: 'Malgun Gothic', '맑은 고딕', 'Apple SD Gothic Neo', sans-serif;
+      font-size: 14px;
+      transition: all 0.3s ease;
+    }
+
+    input::placeholder {
+      color: #64748b;
+    }
+
+    input:focus {
+      outline: none;
+      border-color: #fbbf24;
+      background: rgba(30, 41, 59, 0.95);
+      box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.1);
+    }
+
+    .login-button {
+      width: 100%;
+      padding: 12px;
+      margin-top: 24px;
+      background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+      border: none;
+      border-radius: 6px;
+      color: #0f172a;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: 'Malgun Gothic', '맑은 고딕', 'Apple SD Gothic Neo', sans-serif;
+      transition: all 0.3s ease;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    .login-button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px rgba(251, 191, 36, 0.3);
+    }
+
+    .login-button:active {
+      transform: translateY(0);
+    }
+
+    .login-button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .error-message {
+      display: none;
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      border-radius: 6px;
+      padding: 12px 14px;
+      margin-bottom: 20px;
+      color: #fca5a5;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .error-message.show {
+      display: block;
+      animation: slideDown 0.3s ease;
+    }
+
+    @keyframes slideDown {
+      from {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .loading-spinner {
+      display: none;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(251, 191, 36, 0.3);
+      border-top-color: #fbbf24;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-right: 8px;
+    }
+
+    .login-button.loading {
+      pointer-events: none;
+      opacity: 0.8;
+    }
+
+    .login-button.loading .button-text {
+      display: none;
+    }
+
+    .login-button.loading .loading-spinner {
+      display: inline-block;
+      vertical-align: middle;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .footer-text {
+      text-align: center;
+      margin-top: 24px;
+      font-size: 12px;
+      color: #64748b;
+    }
+
+    .footer-text a {
+      color: #fbbf24;
+      text-decoration: none;
+      transition: color 0.3s ease;
+    }
+
+    .footer-text a:hover {
+      color: #f59e0b;
+      text-decoration: underline;
+    }
+
+    /* 반응형 디자인 */
+    @media (max-width: 480px) {
+      .login-card {
+        padding: 30px 20px;
+      }
+
+      .company-name {
+        font-size: 20px;
+      }
+
+      .app-name {
+        font-size: 12px;
+      }
+
+      .logo {
+        font-size: 40px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="login-container">
+    <div class="login-card">
+      <div class="login-header">
+        <div class="logo">💎</div>
+        <div class="company-name">한국금거래소 안성점</div>
+        <div class="app-name">GoldERP Pro</div>
+      </div>
+
+      <form id="loginForm">
+        <div id="errorMessage" class="error-message"></div>
+
+        <div class="form-group">
+          <label for="email">이메일</label>
+          <input
+            type="email"
+            id="email"
+            name="email"
+            placeholder="your@email.com"
+            required
+            autocomplete="email"
+          >
+        </div>
+
+        <div class="form-group">
+          <label for="password">비밀번호</label>
+          <input
+            type="password"
+            id="password"
+            name="password"
+            placeholder="••••••••"
+            required
+            autocomplete="current-password"
+          >
+        </div>
+
+        <button type="submit" class="login-button" id="loginBtn">
+          <span class="loading-spinner"></span>
+          <span class="button-text">로그인</span>
+        </button>
+      </form>
+
+      <div class="footer-text">
+        계정이 없으신가요? <a href="#" onclick="alert('관리자에게 문의하세요.'); return false;">문의하기</a>
+      </div>
+    </div>
+  </div>
+
+  <script src="./supabase-config.js"></script>
+  <script>
+    // ============================================
+    // 로그인 폼 처리
+    // ============================================
+
+    const loginForm = document.getElementById('loginForm');
+    const emailInput = document.getElementById('email');
+    const passwordInput = document.getElementById('password');
+    const loginBtn = document.getElementById('loginBtn');
+    const errorMessage = document.getElementById('errorMessage');
+
+    /**
+     * 에러 메시지 표시
+     * @param {string} message - 표시할 메시지
+     */
+    function showError(message) {
+      errorMessage.textContent = message;
+      errorMessage.classList.add('show');
+    }
+
+    /**
+     * 에러 메시지 숨기기
+     */
+    function hideError() {
+      errorMessage.classList.remove('show');
+      errorMessage.textContent = '';
+    }
+
+    /**
+     * 로딩 상태 표시
+     * @param {boolean} isLoading - 로딩 상태
+     */
+    function setLoading(isLoading) {
+      loginBtn.disabled = isLoading;
+      loginBtn.classList.toggle('loading', isLoading);
+      emailInput.disabled = isLoading;
+      passwordInput.disabled = isLoading;
+    }
+
+    /**
+     * 폼 제출 핸들러
+     */
+    loginForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      hideError();
+
+      const email = emailInput.value.trim();
+      const password = passwordInput.value;
+
+      // 유효성 검사
+      if (!email || !password) {
+        showError('이메일과 비밀번호를 모두 입력하세요.');
+        return;
+      }
+
+      if (email.length < 5) {
+        showError('유효한 이메일을 입력하세요.');
+        return;
+      }
+
+      if (password.length < 6) {
+        showError('비밀번호는 최소 6자 이상이어야 합니다.');
+        return;
+      }
+
+      setLoading(true);
+
+      try {
+        // Supabase 초기화
+        await initSupabase();
+
+        // 로그인 실행
+        const { user, session, error } = await login(email, password);
+
+        if (error) {
+          // 에러 메시지 한글화
+          let errorMsg = '로그인에 실패했습니다.';
+
+          if (error.message.includes('Invalid login credentials')) {
+            errorMsg = '이메일 또는 비밀번호가 올바르지 않습니다.';
+          } else if (error.message.includes('Email not confirmed')) {
+            errorMsg = '이메일 인증이 완료되지 않았습니다.';
+          } else if (error.message.includes('User not found')) {
+            errorMsg = '등록되지 않은 사용자입니다.';
+          } else if (error.message.includes('Too many requests')) {
+            errorMsg = '너무 많은 시도가 있었습니다. 잠시 후 다시 시도하세요.';
+          }
+
+          showError(errorMsg);
+          setLoading(false);
+          return;
+        }
+
+        if (user && session) {
+          console.log('로그인 성공:', user.email);
+          // 로그인 성공 - 메인 페이지로 리다이렉트
+          window.location.href = './index.html';
+        } else {
+          showError('로그인 중 오류가 발생했습니다.');
+          setLoading(false);
+        }
+      } catch (err) {
+        console.error('로그인 중 오류:', err);
+        showError('시스템 오류가 발생했습니다. 잠시 후 다시 시도하세요.');
+        setLoading(false);
+      }
+    });
+
+    /**
+     * 페이지 로드 시 이미 로그인한 사용자 확인
+     */
+    window.addEventListener('load', async () => {
+      try {
+        await initSupabase();
+        const { user } = await getUser();
+
+        if (user) {
+          // 이미 로그인한 상태면 메인 페이지로 리다이렉트
+          console.log('이미 로그인된 사용자:', user.email);
+          window.location.href = './index.html';
+        }
+      } catch (err) {
+        console.error('사용자 확인 중 오류:', err);
+      }
+    });
+  </script>
+</body>
+</html>

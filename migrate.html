@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GoldERP 데이터 이관 도구</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+            color: #ffffff;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: rgba(30, 30, 30, 0.95);
+            border-radius: 10px;
+            padding: 40px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(212, 175, 55, 0.2);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            background: linear-gradient(135deg, #d4af37 0%, #f0d989 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #999;
+            font-size: 0.95em;
+        }
+
+        .steps-container {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .step {
+            background: rgba(212, 175, 55, 0.05);
+            border: 1px solid rgba(212, 175, 55, 0.2);
+            border-radius: 8px;
+            padding: 25px;
+            transition: all 0.3s ease;
+        }
+
+        .step.completed {
+            background: rgba(76, 175, 80, 0.1);
+            border-color: rgba(76, 175, 80, 0.3);
+        }
+
+        .step-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .step-number {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #d4af37 0%, #f0d989 100%);
+            color: #1a1a1a;
+            font-weight: bold;
+            font-size: 1.2em;
+            flex-shrink: 0;
+        }
+
+        .step.completed .step-number {
+            background: linear-gradient(135deg, #4cb050 0%, #81c784 100%);
+        }
+
+        .step-title {
+            font-size: 1.3em;
+            font-weight: 600;
+            color: #d4af37;
+        }
+
+        .step-content {
+            margin-top: 20px;
+        }
+
+        .summary-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .summary-table th {
+            background: rgba(212, 175, 55, 0.15);
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid rgba(212, 175, 55, 0.2);
+            font-weight: 600;
+            color: #d4af37;
+        }
+
+        .summary-table td {
+            padding: 12px;
+            border-bottom: 1px solid rgba(212, 175, 55, 0.1);
+        }
+
+        .summary-table tr:hover {
+            background: rgba(212, 175, 55, 0.05);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #d4af37 0%, #f0d989 100%);
+            color: #1a1a1a;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(212, 175, 55, 0.4);
+        }
+
+        .btn-secondary {
+            background: rgba(212, 175, 55, 0.2);
+            color: #d4af37;
+            border: 1px solid rgba(212, 175, 55, 0.4);
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            background: rgba(212, 175, 55, 0.3);
+            border-color: rgba(212, 175, 55, 0.6);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #4cb050 0%, #81c784 100%);
+            color: #ffffff;
+        }
+
+        .btn-success:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(76, 175, 80, 0.4);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: rgba(212, 175, 55, 0.1);
+            border-radius: 3px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #d4af37 0%, #f0d989 100%);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .progress-text {
+            text-align: center;
+            color: #999;
+            font-size: 0.9em;
+            margin-top: 8px;
+        }
+
+        .message {
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 15px;
+            font-size: 0.95em;
+            display: none;
+        }
+
+        .message.success {
+            display: block;
+            background: rgba(76, 175, 80, 0.2);
+            border: 1px solid rgba(76, 175, 80, 0.4);
+            color: #81c784;
+        }
+
+        .message.error {
+            display: block;
+            background: rgba(244, 67, 54, 0.2);
+            border: 1px solid rgba(244, 67, 54, 0.4);
+            color: #ef5350;
+        }
+
+        .message.info {
+            display: block;
+            background: rgba(33, 150, 243, 0.2);
+            border: 1px solid rgba(33, 150, 243, 0.4);
+            color: #64b5f6;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .comparison-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .comparison-box {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(212, 175, 55, 0.2);
+            border-radius: 6px;
+            padding: 15px;
+        }
+
+        .comparison-box h4 {
+            color: #d4af37;
+            margin-bottom: 10px;
+            font-size: 0.9em;
+        }
+
+        .comparison-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(212, 175, 55, 0.1);
+            font-size: 0.9em;
+        }
+
+        .comparison-item:last-child {
+            border-bottom: none;
+        }
+
+        .match {
+            color: #81c784;
+        }
+
+        .mismatch {
+            color: #ef5350;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .file-input-label {
+            display: inline-block;
+            padding: 12px 24px;
+            background: rgba(212, 175, 55, 0.2);
+            color: #d4af37;
+            border: 1px solid rgba(212, 175, 55, 0.4);
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            transition: all 0.3s ease;
+        }
+
+        .file-input-label:hover {
+            background: rgba(212, 175, 55, 0.3);
+            border-color: rgba(212, 175, 55, 0.6);
+        }
+
+        .backup-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+            }
+
+            .header h1 {
+                font-size: 1.8em;
+            }
+
+            .comparison-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .button-group {
+                flex-direction: column;
+            }
+
+            button {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>GoldERP 데이터 이관 도구</h1>
+            <p>기존 로컬 데이터를 Supabase로 안전하게 이관하세요</p>
+        </div>
+
+        <div class="steps-container">
+            <!-- Step 1: Load Local Data -->
+            <div class="step" id="step1">
+                <div class="step-header">
+                    <div class="step-number">1</div>
+                    <div class="step-title">기존 데이터 불러오기</div>
+                </div>
+                <div class="step-content">
+                    <p style="color: #999; margin-bottom: 15px;">로컬 저장소(localStorage)에서 기존 데이터를 읽어옵니다.</p>
+                    <button class="btn-primary" onclick="loadLocalData()">데이터 불러오기</button>
+
+                    <div id="summary-container" class="hidden" style="margin-top: 20px;">
+                        <table class="summary-table" id="summary-table">
+                            <thead>
+                                <tr>
+                                    <th>테이블명</th>
+                                    <th>항목 수</th>
+                                    <th>상태</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+
+                    <div class="backup-buttons" id="backup-buttons" style="display: none; margin-top: 20px;">
+                        <button class="btn-secondary" onclick="downloadBackup()">📥 JSON 파일로 백업</button>
+                        <label class="file-input-label">
+                            📤 JSON에서 복원
+                            <input type="file" accept=".json" id="restore-file" onchange="restoreFromBackup(event)">
+                        </label>
+                    </div>
+
+                    <div id="message1" class="message"></div>
+                </div>
+            </div>
+
+            <!-- Step 2: Upload to Supabase -->
+            <div class="step" id="step2">
+                <div class="step-header">
+                    <div class="step-number">2</div>
+                    <div class="step-title">Supabase에 업로드</div>
+                </div>
+                <div class="step-content">
+                    <p style="color: #999; margin-bottom: 15px;">로컬 데이터를 Supabase 데이터베이스에 업로드합니다.</p>
+                    <button class="btn-primary" id="upload-btn" onclick="migrateToSupabase()" disabled>업로드 시작</button>
+
+                    <div id="progress-container" class="hidden" style="margin-top: 20px;">
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="progress-fill"></div>
+                        </div>
+                        <div class="progress-text" id="progress-text">준비 중...</div>
+                    </div>
+
+                    <div id="message2" class="message"></div>
+                </div>
+            </div>
+
+            <!-- Step 3: Validation -->
+            <div class="step" id="step3">
+                <div class="step-header">
+                    <div class="step-number">3</div>
+                    <div class="step-title">검증</div>
+                </div>
+                <div class="step-content">
+                    <p style="color: #999; margin-bottom: 15px;">로컬 데이터와 Supabase의 데이터를 비교하여 검증합니다.</p>
+                    <button class="btn-primary" id="validate-btn" onclick="validateMigration()" disabled>검증 실행</button>
+
+                    <div id="validation-result" class="hidden" style="margin-top: 20px;">
+                        <div class="comparison-grid" id="comparison-grid"></div>
+                    </div>
+
+                    <div id="message3" class="message"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-config.js"></script>
+
+    <script>
+        let localData = null;
+
+        async function loadLocalData() {
+            try {
+                const raw = localStorage.getItem('goldERP_DB');
+                if (!raw) {
+                    showMessage('message1', '기존 데이터가 없습니다', 'error');
+                    return;
+                }
+
+                localData = JSON.parse(raw);
+
+                // Calculate summary
+                const summary = {
+                    'customers': (localData.customers || []).length,
+                    'orders': (localData.orders || []).length,
+                    'inventory': (localData.inventory || []).length,
+                    'sales': (localData.sales || []).length,
+                    'goldCash': (localData.goldCash || []).length,
+                    'sms': (localData.sms || []).length,
+                    'messages': (localData.messages || []).length,
+                    'board': (localData.board || []).length
+                };
+
+                // Display summary table
+                const tbody = document.querySelector('#summary-table tbody');
+                tbody.innerHTML = '';
+                let totalItems = 0;
+
+                for (const [table, count] of Object.entries(summary)) {
+                    if (count > 0) {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${getTableLabel(table)}</td>
+                            <td>${count}</td>
+                            <td><span style="color: #81c784;">✓ 준비됨</span></td>
+                        `;
+                        tbody.appendChild(row);
+                        totalItems += count;
+                    }
+                }
+
+                document.getElementById('summary-container').classList.remove('hidden');
+                document.getElementById('backup-buttons').style.display = 'flex';
+                document.getElementById('upload-btn').disabled = false;
+
+                showMessage('message1', `총 ${totalItems}개 항목이 준비되었습니다`, 'success');
+                document.getElementById('step1').classList.add('completed');
+            } catch (error) {
+                console.error('Error loading data:', error);
+                showMessage('message1', '데이터 불러오기 실패: ' + error.message, 'error');
+            }
+        }
+
+        async function migrateToSupabase() {
+            if (!localData) {
+                showMessage('message2', '먼저 데이터를 불러오세요', 'error');
+                return;
+            }
+
+            try {
+                document.getElementById('progress-container').classList.remove('hidden');
+                document.getElementById('upload-btn').disabled = true;
+
+                const tables = ['customers', 'orders', 'inventory', 'sales', 'goldCash', 'sms', 'messages', 'board'];
+                let totalRecords = 0;
+                let processedRecords = 0;
+
+                // Count total records
+                for (const table of tables) {
+                    totalRecords += (localData[table] || []).length;
+                }
+
+                if (totalRecords === 0) {
+                    showMessage('message2', '업로드할 데이터가 없습니다', 'info');
+                    return;
+                }
+
+                // Upload each table
+                for (const table of tables) {
+                    const records = localData[table] || [];
+                    if (records.length === 0) continue;
+
+                    for (const record of records) {
+                        try {
+                            await GoldERP.insertRow(table, record);
+                            processedRecords++;
+                            updateProgress(processedRecords, totalRecords, table);
+                        } catch (error) {
+                            console.warn(`Failed to insert record in ${table}:`, error);
+                        }
+                    }
+                }
+
+                showMessage('message2', `업로드 완료! ${processedRecords}개 항목이 Supabase에 저장되었습니다`, 'success');
+                document.getElementById('step2').classList.add('completed');
+                document.getElementById('validate-btn').disabled = false;
+            } catch (error) {
+                console.error('Error during migration:', error);
+                showMessage('message2', '업로드 중 오류 발생: ' + error.message, 'error');
+                document.getElementById('upload-btn').disabled = false;
+            }
+        }
+
+        async function validateMigration() {
+            if (!localData) {
+                showMessage('message3', '먼저 데이터를 불러오세요', 'error');
+                return;
+            }
+
+            try {
+                document.getElementById('validate-btn').disabled = true;
+                const tables = ['customers', 'orders', 'inventory', 'sales', 'goldCash', 'sms', 'messages', 'board'];
+                const comparisonGrid = document.getElementById('comparison-grid');
+                comparisonGrid.innerHTML = '';
+
+                let allMatch = true;
+
+                // Local data count
+                const localBox = document.createElement('div');
+                localBox.className = 'comparison-box';
+                localBox.innerHTML = '<h4>로컬 저장소</h4>';
+                let localTotal = 0;
+
+                for (const table of tables) {
+                    const count = (localData[table] || []).length;
+                    if (count > 0) {
+                        localTotal += count;
+                        const item = document.createElement('div');
+                        item.className = 'comparison-item';
+                        item.innerHTML = `<span>${getTableLabel(table)}</span><span>${count}</span>`;
+                        localBox.appendChild(item);
+                    }
+                }
+
+                const totalItem = document.createElement('div');
+                totalItem.className = 'comparison-item';
+                totalItem.innerHTML = `<span style="font-weight: bold;">합계</span><span style="font-weight: bold;">${localTotal}</span>`;
+                localBox.appendChild(totalItem);
+                comparisonGrid.appendChild(localBox);
+
+                // Supabase data count
+                const supabaseBox = document.createElement('div');
+                supabaseBox.className = 'comparison-box';
+                supabaseBox.innerHTML = '<h4>Supabase</h4>';
+                let supabaseTotal = 0;
+
+                for (const table of tables) {
+                    try {
+                        const { count } = await GoldERP.client.from(table).select('*', { count: 'exact', head: true });
+                        if (count > 0) {
+                            supabaseTotal += count;
+                            const item = document.createElement('div');
+                            item.className = `comparison-item ${count === (localData[table] || []).length ? 'match' : 'mismatch'}`;
+                            const status = count === (localData[table] || []).length ? '✓' : '✗';
+                            item.innerHTML = `<span>${getTableLabel(table)} ${status}</span><span>${count}</span>`;
+                            supabaseBox.appendChild(item);
+
+                            if (count !== (localData[table] || []).length) {
+                                allMatch = false;
+                            }
+                        }
+                    } catch (error) {
+                        console.warn(`Failed to count ${table}:`, error);
+                    }
+                }
+
+                const totalItem2 = document.createElement('div');
+                totalItem2.className = 'comparison-item';
+                totalItem2.innerHTML = `<span style="font-weight: bold;">합계</span><span style="font-weight: bold;">${supabaseTotal}</span>`;
+                supabaseBox.appendChild(totalItem2);
+                comparisonGrid.appendChild(supabaseBox);
+
+                document.getElementById('validation-result').classList.remove('hidden');
+                document.getElementById('step3').classList.add('completed');
+
+                if (allMatch && supabaseTotal > 0) {
+                    showMessage('message3', '✓ 검증 완료! 모든 데이터가 정상적으로 이관되었습니다', 'success');
+                } else {
+                    showMessage('message3', '⚠ 검증 완료. 일부 데이터의 개수가 일치하지 않습니다. 다시 확인하세요.', 'info');
+                }
+            } catch (error) {
+                console.error('Error during validation:', error);
+                showMessage('message3', '검증 중 오류 발생: ' + error.message, 'error');
+                document.getElementById('validate-btn').disabled = false;
+            }
+        }
+
+        function downloadBackup() {
+            try {
+                const raw = localStorage.getItem('goldERP_DB');
+                if (!raw) {
+                    showMessage('message1', '백업할 데이터가 없습니다', 'error');
+                    return;
+                }
+
+                const blob = new Blob([raw], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `goldERP_backup_${new Date().getTime()}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+
+                showMessage('message1', '백업 파일이 다운로드되었습니다', 'success');
+            } catch (error) {
+                console.error('Error downloading backup:', error);
+                showMessage('message1', '백업 실패: ' + error.message, 'error');
+            }
+        }
+
+        function restoreFromBackup(event) {
+            try {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const data = JSON.parse(e.target.result);
+                        localStorage.setItem('goldERP_DB', JSON.stringify(data));
+                        showMessage('message1', '백업에서 복원되었습니다. 페이지를 새로고침하세요.', 'success');
+                        setTimeout(() => location.reload(), 2000);
+                    } catch (parseError) {
+                        showMessage('message1', 'JSON 파일이 유효하지 않습니다', 'error');
+                    }
+                };
+                reader.readAsText(file);
+            } catch (error) {
+                console.error('Error restoring backup:', error);
+                showMessage('message1', '복원 실패: ' + error.message, 'error');
+            }
+        }
+
+        function updateProgress(current, total, tableName) {
+            const percentage = Math.round((current / total) * 100);
+            document.getElementById('progress-fill').style.width = percentage + '%';
+            document.getElementById('progress-text').textContent = `${tableName} 업로드 중... ${percentage}%`;
+        }
+
+        function showMessage(elementId, text, type) {
+            const element = document.getElementById(elementId);
+            element.textContent = text;
+            element.className = `message ${type}`;
+        }
+
+        function getTableLabel(table) {
+            const labels = {
+                'customers': '고객',
+                'orders': '주문',
+                'inventory': '재고',
+                'sales': '판매',
+                'goldCash': '금거래',
+                'sms': 'SMS',
+                'messages': '메시지',
+                'board': '게시판'
+            };
+            return labels[table] || table;
+        }
+
+        // Initialize
+        window.addEventListener('load', function() {
+            loadLocalData();
+        });
+    </script>
+</body>
+</html>
