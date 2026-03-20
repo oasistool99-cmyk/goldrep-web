@@ -3226,7 +3226,11 @@
     // 이미지 URL을 프록시 URL로 변환 (핫링크 차단 우회)
     function proxyImageUrl(url) {
       if (!url || !url.startsWith('http') || url.startsWith('data:')) return url;
-      return 'https://images.weserv.nl/?url=' + encodeURIComponent(url) + '&w=200&h=200&fit=cover&output=jpg&q=75';
+      // koreagoldx는 핫링크 차단 → 프록시 사용, cafe24는 직접 로드
+      if (url.indexOf('koreagoldx.co.kr') !== -1) {
+        return 'https://images.weserv.nl/?url=' + encodeURIComponent(url) + '&w=200&h=200&fit=cover&output=jpg&q=75';
+      }
+      return url;
     }
     // 이미지 로딩 실패 시 프록시로 재시도 (backup)
     function retryImageWithProxy(img) {
