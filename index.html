@@ -5980,9 +5980,15 @@
 // Check authentication on page load
 async function checkAuth() {
   try {
+    if (typeof GoldERP === 'undefined' || !GoldERP.isConnected) {
+      console.log('오프라인 모드 - 인증 건너뜀');
+      updateSupabaseStatus(false);
+      return;
+    }
     const user = await GoldERP.getUser();
     if (!user) {
-      window.location.href = 'login.html';
+      // 오프라인 모드에서는 로그인 페이지로 이동하지 않음
+      console.log('로그인 필요 (오프라인 모드 허용)');
       return;
     }
     // Update user display in topbar
@@ -6006,6 +6012,10 @@ async function checkAuth() {
 // Load all data from Supabase
 async function loadDB() {
   try {
+    if (typeof GoldERP === 'undefined' || !GoldERP.isConnected) {
+      console.log('오프라인 모드 - Supabase 로드 건너뜀');
+      return;
+    }
     const tables = ['catalog', 'stones', 'customers', 'bookings', 'consultations',
                     'introducers', 'orders', 'purchases', 'inventory', 'sales', 'repairs',
                     'companies', 'gold_cash', 'tax', 'sms_logs', 'messages',

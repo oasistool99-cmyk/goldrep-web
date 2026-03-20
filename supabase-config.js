@@ -376,3 +376,31 @@ if (typeof module !== 'undefined' && module.exports) {
     subscribe,
   };
 }
+
+// ============================================
+// 글로벌 GoldERP 객체 (index.html에서 사용)
+// ============================================
+const GoldERP = {
+  initSupabase,
+  login,
+  logout,
+  getUser,
+  onAuthChange,
+  getStoreId,
+  fetchAll,
+  fetchOne,
+  insertRow,
+  updateRow,
+  deleteRow,
+  subscribe,
+  isConnected: false
+};
+
+// Supabase 연결 시도 후 상태 업데이트
+initSupabase().then(function() {
+  GoldERP.isConnected = true;
+  console.log('GoldERP Supabase 연결 완료');
+}).catch(function(e) {
+  GoldERP.isConnected = false;
+  console.warn('GoldERP Supabase 연결 실패 (오프라인 모드):', e.message);
+});
