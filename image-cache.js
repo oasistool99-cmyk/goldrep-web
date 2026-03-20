@@ -1,0 +1,2 @@
+var CACHED_IMAGES={};
+if(typeof DB!="undefined"&&DB.catalog){DB.catalog.forEach(function(item){if(item.image&&CACHED_IMAGES[item.image])item.image=CACHED_IMAGES[item.image]});if(typeof renderCatalog=="function")renderCatalog();}
